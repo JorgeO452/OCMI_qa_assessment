@@ -94,5 +94,76 @@ describe('Posts API', () => {
       // Restore auth token for subsequent tests
       axios.defaults.headers.common['Authorization'] = authToken;
     });
+
+    it('should update an existing post successfully', async () => {
+      const postData = { title: 'Initial Title', content: 'Initial Content' };
+      const createResponse = await axios.post<Post>('/posts', postData);
+      const postId = createResponse.data.id;
+    
+      const updatedData = { title: 'Updated Title', content: 'Updated Content' };
+      const updateResponse = await axios.put<Post>(`/posts/${postId}`, updatedData);
+    
+      expect(updateResponse.status).toBe(200);
+      expect(updateResponse.data).toMatchObject(updatedData);
+    
+      const getResponse = await axios.get<Post>(`/posts/${postId}`);
+      expect(getResponse.data).toEqual(updateResponse.data);
+    });
+
+    it('should delete a post successfully', async () => {
+      const postData = { title: 'Delete Test', content: 'To be deleted' };
+      const createResponse = await axios.post<Post>('/posts', postData);
+      const postId = createResponse.data.id;
+    
+      const deleteResponse = await axios.delete(`/posts/${postId}`);
+      expect(deleteResponse.status).toBe(200);
+    
+      try {
+        await axios.get<Post>(`/posts/${postId}`);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        expect(error.response.status).toBe(404);
+      }
+    });
+    
+    it('should not allow access to another user\'s post', async () => {
+      // Create post with initial user
+      const postData = { title: 'User Test', content: 'Private Content' };
+      const createResponse = await axios.post<Post>('/posts', postData);
+      const postId = createResponse.data.id;
+    
+      // Register and switch to a different user
+      const newUser = `testuser_${Math.random().toString(36).substring(7)}`;
+      const newPass = 'password123';
+      const registerResponse = await axios.post<Session>('/users', { username: newUser, password: newPass });
+      const newAuthToken = registerResponse.data.token;
+      axios.defaults.headers.common['Authorization'] = newAuthToken;
+    
+      // Try to access the post created by the first user
+      try {
+        await axios.get<Post>(`/posts/${postId}`);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        expect(error.response).toBeDefined();
+        expect(error.response?.status).toBe(403);
+      }
+    
+      // Revert to original auth token
+      axios.defaults.headers.common['Authorization'] = authToken;
+    });
+    
+    it('should reject a post with title or content exceeding the character limit', async () => {
+      const longContent = 'a'.repeat(1001);
+      const invalidPost = { title: 'Title within limit', content: longContent };
+    
+      try {
+        await axios.post('/posts', invalidPost);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        expect(error.response).toBeDefined();
+        expect(error.response.status).toBe(422);
+        expect(error.response.data.errors).toBeDefined();
+      }
+    });
   });
 });
