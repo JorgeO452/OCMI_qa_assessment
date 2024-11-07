@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react';
 import { useStorage } from '../hooks';
 import { useNavigate } from 'react-router-dom';
-import Root from './root';
+import Root from '../app/root';
 import { describe, expect, it, vi } from 'vitest';
 import { Mock } from '@vitest/spy';
 
